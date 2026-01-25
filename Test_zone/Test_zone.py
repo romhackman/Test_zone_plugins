@@ -3,14 +3,15 @@ import subprocess
 import os
 import sys
 from tkinter import messagebox
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk  # <-- Correction importante
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 TEST_VERSION_PATH = os.path.join(BASE_DIR, "test_programme", "test_version.py")
 PLUGIN_MAKER_PATH = os.path.join(BASE_DIR, "test_programme", "plugin_maker.py")
-IMAGE_PATH = os.path.join(BASE_DIR, "image.png")  # Image principale
-LOGO_PATH = os.path.join(BASE_DIR, "logo.png")    # Logo de la fenêtre
+LAUNCHER_MODULE = os.path.join(BASE_DIR, "test_programme", "launcher_module.py")
+IMAGE_PATH = os.path.join(BASE_DIR, "image.png")
+LOGO_PATH = os.path.join(BASE_DIR, "logo.png")
 
 # 🎨 THEME BLUE TECH
 BG_COLOR = "#0b132b"
@@ -22,8 +23,9 @@ ACCENT = "#5bc0be"
 
 # --- Fonction de log ---
 def log(message):
-    print(f"[TZ] {message}")  # Remplace [LOG] par [TZ]
+    print(f"[TZ] {message}")
 
+# --- Fonctions de lancement ---
 def launch_test_version():
     log("Tentative de lancement de test_version.py")
     if not os.path.exists(TEST_VERSION_PATH):
@@ -42,6 +44,16 @@ def launch_plugin_maker():
     subprocess.Popen([sys.executable, PLUGIN_MAKER_PATH])
     log("plugin_maker.py lancé")
 
+def launch_launcher_module():
+    log("Tentative de lancement de launcher_module.py")
+    if not os.path.exists(LAUNCHER_MODULE):
+        messagebox.showerror("Erreur", "launcher_module.py introuvable")
+        log("Erreur : launcher_module.py introuvable")
+        return
+    subprocess.Popen([sys.executable, LAUNCHER_MODULE])
+    log("launcher_module.py lancé")
+
+# --- Effets de survol des boutons ---
 def on_enter(e):
     e.widget.configure(bg=BTN_HOVER)
 
@@ -97,7 +109,14 @@ btn2 = tk.Button(left_frame, text="Plugin Maker",
                  width=32, height=2, relief="flat")
 btn2.pack(pady=6)
 
-for btn in (btn1, btn2):
+btn3 = tk.Button(left_frame, text="Launcher Module",
+                 command=launch_launcher_module,
+                 bg=BTN_COLOR, fg=TEXT_COLOR,
+                 activebackground=BTN_HOVER, activeforeground=TEXT_COLOR,
+                 width=32, height=2, relief="flat")
+btn3.pack(pady=6)
+
+for btn in (btn1, btn2, btn3):
     btn.bind("<Enter>", on_enter)
     btn.bind("<Leave>", on_leave)
 
@@ -106,29 +125,32 @@ right_frame = tk.Frame(main_frame, bg=BG_COLOR)
 right_frame.pack(side="right", padx=20, pady=20, fill="both", expand=True)
 
 if os.path.exists(IMAGE_PATH):
-    img_orig = Image.open(IMAGE_PATH)
+    try:
+        img_orig = Image.open(IMAGE_PATH)
+        max_width = 400
+        max_height = 460
 
-    # Taille maximale pour l'image
-    max_width = 400
-    max_height = 460
+        ratio_orig = img_orig.width / img_orig.height
+        ratio_max = max_width / max_height
 
-    ratio_orig = img_orig.width / img_orig.height
-    ratio_max = max_width / max_height
+        if ratio_orig > ratio_max:
+            new_width = max_width
+            new_height = int(max_width / ratio_orig)
+        else:
+            new_height = max_height
+            new_width = int(max_height * ratio_orig)
 
-    if ratio_orig > ratio_max:
-        new_width = max_width
-        new_height = int(max_width / ratio_orig)
-    else:
-        new_height = max_height
-        new_width = int(max_height * ratio_orig)
+        img_resized = img_orig.resize((new_width, new_height), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img_resized)
 
-    img_resized = img_orig.resize((new_width, new_height), Image.LANCZOS)
-    photo = ImageTk.PhotoImage(img_resized)
-
-    image_label = tk.Label(right_frame, image=photo, bg=BG_COLOR)
-    image_label.image = photo  # référence nécessaire pour Tkinter
-    image_label.pack(expand=True)
-    log("Image principale chargée")
+        image_label = tk.Label(right_frame, image=photo, bg=BG_COLOR)
+        image_label.image = photo  # <-- éviter la collecte par le GC
+        image_label.pack(expand=True)
+        log("Image principale chargée")
+    except Exception as e:
+        log(f"Erreur lors du chargement de l'image : {e}")
+        tk.Label(right_frame, text="(Erreur image)", bg=BG_COLOR,
+                 fg=TEXT_COLOR, font=("Segoe UI", 12)).pack(expand=True)
 else:
     tk.Label(right_frame, text="(Aucune image)", bg=BG_COLOR,
              fg=TEXT_COLOR, font=("Segoe UI", 12)).pack(expand=True)
