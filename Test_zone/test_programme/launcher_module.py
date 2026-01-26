@@ -4,6 +4,7 @@ import subprocess
 import sys
 import os
 import threading
+import json
 
 # ----------------- THEME BLUE TECH -----------------
 BG_COLOR = "#0b132b"
@@ -35,6 +36,13 @@ MANGA_ROOT = find_manga_root(BASE_DIR)
 if not MANGA_ROOT:
     raise FileNotFoundError("Impossible de trouver le dossier Manga depuis le launcher !")
 
+PLUGINS_JSON = os.path.join(
+    MANGA_ROOT,
+    "plugins",
+    "plugins",
+    "instance_plugins.json"
+)
+
 # ----------------- FONCTION LOG -----------------
 def log(message):
     """Affiche un message dans la console et dans la zone CMD"""
@@ -52,10 +60,16 @@ def clear_cmd():
 
 # ----------------- FONCTION DE LANCEMENT -----------------
 def launch_script(script_path):
-    full_path = os.path.join(MANGA_ROOT, script_path)
+    # Si chemin absolu → on l’utilise tel quel
+    if os.path.isabs(script_path):
+        full_path = script_path
+    else:
+        full_path = os.path.join(MANGA_ROOT, script_path)
+
     if not os.path.exists(full_path):
         log(f"[ERREUR] Fichier introuvable : {full_path}")
         return
+
 
     def run_script():
         log(f"[INFO] Lancement : {full_path}")
@@ -82,6 +96,18 @@ def launch_script(script_path):
             log(f"[ERREUR] {str(e)}")
 
     threading.Thread(target=run_script, daemon=True).start()
+def load_plugins():
+    """Charge les plugins depuis instance_plugins.json"""
+    if not os.path.exists(PLUGINS_JSON):
+        log("[ERREUR] instance_plugins.json introuvable")
+        return {}
+
+    try:
+        with open(PLUGINS_JSON, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        log(f"[ERREUR] Lecture JSON plugins : {e}")
+        return {}
 
 # ----------------- INTERFACE -----------------
 root = tk.Tk()
@@ -150,6 +176,35 @@ for name, path in anime_scripts:
     btn.pack(pady=5)
     btn.bind("<Enter>", lambda e, b=btn: b.config(bg=BTN_HOVER))
     btn.bind("<Leave>", lambda e, b=btn: b.config(bg=BTN_COLOR))
+
+# ----- Onglet Plugins -----
+frame_plugins = tk.Frame(notebook, bg=BG_COLOR)
+notebook.add(frame_plugins, text="Plugins")
+
+plugins = load_plugins()
+
+if not plugins:
+    tk.Label(
+        frame_plugins,
+        text="Aucun plugin trouvé",
+        bg=BG_COLOR,
+        fg=TEXT_SECONDARY
+    ).pack(pady=20)
+else:
+    for plugin_name, plugin_path in plugins.items():
+        btn = tk.Button(
+            frame_plugins,
+            text=plugin_name,
+            bg=BTN_COLOR,
+            fg=TEXT_COLOR,
+            activebackground=ACCENT,
+            width=30,
+            height=2,
+            command=lambda p=plugin_path: launch_script(p)
+        )
+        btn.pack(pady=5)
+        btn.bind("<Enter>", lambda e, b=btn: b.config(bg=BTN_HOVER))
+        btn.bind("<Leave>", lambda e, b=btn: b.config(bg=BTN_COLOR))
 
 # ----------------- Zone CMD -----------------
 cmd_frame = tk.Frame(main_frame, bg="#1a1a1a", width=350)
